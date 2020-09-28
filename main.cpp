@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -92,62 +93,6 @@ uint8_t flipEverySecondBit(uint8_t byte)
     return byte ^ 0b01010101;
 }
 
-// Returns true if parity matches and false if it doesnt
-bool calculateParity(uint8_t byte) {
-    int num1s = bitset<8>(byte).count();
-
-    if(num1s % 2 == 0 && bitset<8>(byte)[0] == 0)
-        return true;
-
-    if(num1s % 2 == 1 && bitset<8>(byte)[0] == 1)
-        return true;
-
-    return false;
-}
-
-std::string checkParityAndRemove(std::string input) {
-    // The input should be of size 8
-    if (input.length() != 8)
-        throw std::runtime_error("ERROR: incorrect size chunk passed to paritychecker");
-
-    std::vector<std::pair<uint8_t, bool>> outputMap = {};
-
-    // Go through each byte
-    for(auto c : input) {
-        // Calculate if paritybit matches
-        bool checkParity = calculateParity(c);
-
-        outputMap.push_back({c, checkParity});
-    }
-
-    uint64_t out = 0;
-
-    // Remove the elements where checkparity is false
-    for (int i = 0; i < 8; i++) {
-        //if(outputMap[i].second) {
-            uint64_t temp = outputMap[i].first;
-            temp = temp >> 1;
-
-            temp = temp << 8*(8-i);
-
-            out = out | temp;
-        //}
-    }
-    // Now we need to split the components
-    std::string outstr = "";
-
-    outstr.push_back((out << 0) >> 56);
-    outstr.push_back((out << 8) >> 56);
-    outstr.push_back((out << 16) >> 56);
-    outstr.push_back((out << 24) >> 56);
-    outstr.push_back((out << 32) >> 56);
-    outstr.push_back((out << 40) >> 56);
-    outstr.push_back((out << 48) >> 56);
-
-    std::cout << outstr;
-
-    return outstr;
-}
 
 uint8_t rotateRight(uint8_t byte)
 {
@@ -160,6 +105,20 @@ uint8_t rotateRight(uint8_t byte)
 
     return byte | firstBit;
 }
+
+// Returns true if parity matches and false if it doesnt
+bool calculateParity(uint8_t byte) {
+    int num1s = bitset<8>(byte >> 1).count();
+
+    if(num1s % 2 == 0 && bitset<8>(byte)[0] == 0)
+        return true;
+
+    if(num1s % 2 == 1 && bitset<8>(byte)[0] == 1)
+        return true;
+
+    return false;
+}
+
 
 int main()
 {
@@ -177,20 +136,48 @@ int main()
         uint8_t rotatedByte = rotateRight(flippedbyte);
         layer2.push_back(rotatedByte);
     }
-    std::cout << layer2 << std::endl;
 
-    // Layer 2
-//    std::string layer2payload = decodeASCII85(readPayload(layer2));
-//    std::string layer3 = "";
-
-
-//    for (size_t i = 0; i < layer2payload.size(); i++) {
-//        std::string chunk = layer2payload.substr(i, 8);
-//        std::string processed = checkParityAndRemove(chunk);
-//        layer3.insert(layer3.end(), processed.begin(), processed.end());
-//    }
+    //Layer 2
+    std::string layer2payload = decodeASCII85(readPayload(layer2));
+    std::string layer3 = "";
 
 
+    std::vector<uint8_t> temp = {};
+    for (auto c : layer2payload) {
+        // If byte parity is correct, push onto temp
+        if(calculateParity(c))
+            temp.push_back(c);
+
+        if(temp.size() == 8) {
+            // Remove parity bits and push the 7 characters onto layer3
+            // Merge temp into an int64
+            uint64_t chunk = 0;
+            for(int i = 0; i < 8; i++){
+                chunk = (chunk << 7) | ((uint64_t)temp.at(i) >> 1);
+            }
+
+            // Pull out the 7 characters from big int
+            std::string outstr = "";
+            outstr.push_back((chunk << 48) >> 56);
+            outstr.push_back((chunk << 40) >> 56);
+            outstr.push_back((chunk << 32) >> 56);
+            outstr.push_back((chunk << 24) >> 56);
+            outstr.push_back((chunk << 16) >> 56);
+            outstr.push_back((chunk << 8) >> 56);
+            outstr.push_back((chunk << 0) >> 56);
+
+            // Reverse because algorithms. Idk it was backwards before it was reversed
+            std::reverse(outstr.begin(), outstr.end());
+
+            layer3.insert(layer3.end(), outstr.begin(), outstr.end());
+
+            // Clear string
+            temp.clear();
+        }
+    }
+
+
+    std::cout << layer3 << std::endl;
 
 
     return 0;
