@@ -1,3 +1,4 @@
+#include <bitset>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -27,7 +28,7 @@ std::string readPayload(std::string payloadwithmessage)
     return payload.substr(payload.find("<~"));
 }
 
-std::string decodeASCII85Chunk(std::string chunk)
+std::vector<uint8_t> decodeASCII85Chunk(std::string chunk)
 {
     if (chunk.length() != 5)
         throw std::runtime_error("ERROR: incorrect size chunk passed to chunkdecoder");
@@ -40,7 +41,7 @@ std::string decodeASCII85Chunk(std::string chunk)
     }
 
     // Extract bits from int using bitshifting
-    std::string out;
+    std::vector<uint8_t> out;
     out.push_back((ascii_binary << 0) >> 24);
     out.push_back((ascii_binary << 8) >> 24);
     out.push_back((ascii_binary << 16) >> 24);
@@ -74,36 +75,61 @@ std::string decodeASCII85(std::string encoded)
     }
 
     // 3. Decode payload 1 chunk at a time
-    std::stringstream messagewithpadding;
-    for (auto chunk : chunks)
-        messagewithpadding << decodeASCII85Chunk(chunk);
+    std::string decodedwithpadding;
+    for (auto chunk : chunks) {
+        auto decodedChunk = decodeASCII85Chunk(chunk);
+        decodedwithpadding.insert(decodedwithpadding.end(), decodedChunk.begin(), decodedChunk.end());
+    }
 
     // 4. Remove leftover pad from step 2
-    std::string message = messagewithpadding.str();
     if (padding_size != 5)
-        message = message.substr(0, message.length() - static_cast<size_t>(padding_size));
+        decodedwithpadding.resize(decodedwithpadding.size() - static_cast<size_t>(padding_size));
 
-    return message;
+    return decodedwithpadding;
 }
 
-//uint8_t flipEverySecondBit(uint8_t byte)
-//{
+uint8_t flipEverySecondBit(uint8_t byte)
+{
+    return byte ^ 0b01010101;
+}
 
-//}
+uint8_t rotateRight(uint8_t byte)
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
+    uint8_t firstBit = (byte & 0b00000001) << 7;
+#pragma clang diagnostic pop
+
+    byte = byte >> 1;
+
+    return byte | firstBit;
+}
 
 int main()
 {
     // Layer 0
-    std::string payload_filedata = readFile("../onionfile.txt");
-    std::string layer0 = readPayload(payload_filedata);
-    std::string layer0payload = decodeASCII85(layer0);
+    std::string layer0 = readFile("../onionfile.txt");
+    std::string layer0payload = readPayload(layer0);
+    std::string layer1 = decodeASCII85(layer0payload);
 
     // Layer 1
-    std::string layer1payload = decodeASCII85(layer0payload);
+    std::string layer1payload = decodeASCII85(readPayload(layer1));
+    //std::cout << readPayload(layer1) << std::endl;
 
-    //    for (auto byte : layer1payload) {
-    //        uint8_t flippedbyte =
-    //    }
+    std::vector<uint8_t> layer2 = {};
+
+    uint8_t test = 0b11111110;
+    uint8_t result = rotateRight(flipEverySecondBit(test));
+
+    std::cout << std::bitset<8>(test) << std::endl;
+    std::cout << std::bitset<8>(flipEverySecondBit(test)) << std::endl;
+    std::cout << std::bitset<8>(result) << std::endl;
+
+    for (auto byte : layer1payload) {
+        uint8_t flippedbyte = flipEverySecondBit(byte);
+        uint8_t rotatedByte = rotateRight(flippedbyte);
+        std::cout << rotatedByte;
+    }
 
     // Process 1 byte at a time
     // Flip every second bit using XOR
