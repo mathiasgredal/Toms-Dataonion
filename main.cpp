@@ -179,6 +179,5 @@ int main()
 
     std::cout << layer3 << std::endl;
 
-
     return 0;
 }
