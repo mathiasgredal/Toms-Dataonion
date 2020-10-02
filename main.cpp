@@ -1,10 +1,10 @@
+#include <algorithm>
 #include <bitset>
 #include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <algorithm>
 
 using namespace std;
 
@@ -31,14 +31,16 @@ std::string readPayload(std::string payloadwithmessage)
 
 std::vector<uint8_t> decodeASCII85Chunk(std::string chunk)
 {
-    if (chunk.length() != 5)
-        throw std::runtime_error("ERROR: incorrect size chunk passed to chunkdecoder");
+    if (chunk.length() != 5) {
+        auto up = std::runtime_error("ERROR: incorrect size chunk passed to chunkdecoder");
+        throw up;
+    }
 
     int ascii_binary = (chunk[0] - 33) * 85 * 85 * 85 * 85
-            + (chunk[1] - 33) * 85 * 85 * 85
-            + (chunk[2] - 33) * 85 * 85
-            + (chunk[3] - 33) * 85
-            + (chunk[4] - 33);
+        + (chunk[1] - 33) * 85 * 85 * 85
+        + (chunk[2] - 33) * 85 * 85
+        + (chunk[3] - 33) * 85
+        + (chunk[4] - 33);
 
     // Extract bits from int using bitshifting
     std::vector<uint8_t> out;
@@ -93,7 +95,6 @@ uint8_t flipEverySecondBit(uint8_t byte)
     return byte ^ 0b01010101;
 }
 
-
 uint8_t rotateRight(uint8_t byte)
 {
 #pragma clang diagnostic push
@@ -107,18 +108,18 @@ uint8_t rotateRight(uint8_t byte)
 }
 
 // Returns true if parity matches and false if it doesnt
-bool calculateParity(uint8_t byte) {
+bool calculateParity(uint8_t byte)
+{
     int num1s = bitset<8>(byte >> 1).count();
 
-    if(num1s % 2 == 0 && bitset<8>(byte)[0] == 0)
+    if (num1s % 2 == 0 && bitset<8>(byte)[0] == 0)
         return true;
 
-    if(num1s % 2 == 1 && bitset<8>(byte)[0] == 1)
+    if (num1s % 2 == 1 && bitset<8>(byte)[0] == 1)
         return true;
 
     return false;
 }
-
 
 int main()
 {
@@ -141,23 +142,23 @@ int main()
     std::string layer2payload = decodeASCII85(readPayload(layer2));
     std::string layer3 = "";
 
-
     std::vector<uint8_t> temp = {};
     for (auto c : layer2payload) {
         // If byte parity is correct, push onto temp
-        if(calculateParity(c))
+        if (calculateParity(c))
             temp.push_back(c);
 
-        if(temp.size() == 8) {
+        if (temp.size() == 8) {
             // Remove parity bits and push the 7 characters onto layer3
             // Merge temp into an int64
             uint64_t chunk = 0;
-            for(int i = 0; i < 8; i++){
+            for (int i = 0; i < 8; i++) {
                 chunk = (chunk << 7) | ((uint64_t)temp.at(i) >> 1);
             }
 
             // Pull out the 7 characters from big int
             std::string outstr = "";
+            outstr.push_back((chunk << 56) >> 56);
             outstr.push_back((chunk << 48) >> 56);
             outstr.push_back((chunk << 40) >> 56);
             outstr.push_back((chunk << 32) >> 56);
@@ -175,7 +176,6 @@ int main()
             temp.clear();
         }
     }
-
 
     std::cout << layer3 << std::endl;
 
